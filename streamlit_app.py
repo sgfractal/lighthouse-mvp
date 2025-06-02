@@ -1,11 +1,38 @@
+# app.py
 import json
 from typing import Dict
 from dataclasses import dataclass
 
 import streamlit as st
 
-# ─── Data Classes & Calculator Logic ──────────────────────────────────────────
+# ─── 0. SESSION-STATE INITIALIZATION ────────────────────────────────────────────
+# Pre‐seed all keys we will use in session_state to avoid AttributeError
+initial_keys = {
+    "step": 0,
+    "profile_name": "",
+    "profile_email": "",
+    "site_name": "",
+    "location": "",
+    "capacity_mw": 0.0,
+    "cod_year": 2024,
+    "grid_connection": 3,
+    "om_provider": 3,
+    "regulatory": 3,
+    "site_access": 3,
+    "panel_tech": 3,
+    "inverter_tech": 3,
+    "system_design": 3,
+    "installation": 3,
+    "weather_variability": 3,
+    "extreme_weather": 3,
+    "resource_stability": 3,
+}
 
+for key, default_value in initial_keys.items():
+    if key not in st.session_state:
+        st.session_state[key] = default_value
+
+# ─── Data Classes & Calculator Logic ────────────────────────────────────────────
 @dataclass
 class RiskScores:
     operational: float
@@ -130,14 +157,15 @@ class SolarRiskCalculator:
 
 # ─── Streamlit App “Wizard” ───────────────────────────────────────────────────
 
-st.set_page_config(page_title="Sunereum Site Risk Calculator", layout="wide")
-st.title("🔆 Sunereum Solar Risk Calculator")
+st.set_page_config(
+    page_title="Sunereum Solar Risk Calculator",
+    layout="wide"
+)
+
+# Update the title to include "Sunereum Solar Risk Engine"
+st.title("☀️ Sunereum Solar Risk Engine — Solar Site Risk Calculator")
 
 calculator = SolarRiskCalculator()
-
-# Initialize “step” in session state if not already there
-if "step" not in st.session_state:
-    st.session_state.step = 0
 
 # Show progress indicator
 total_steps = 6  # Profile, Site, Operational, Technical, Climate, Results
@@ -154,12 +182,12 @@ if st.session_state.step == 0:
     st.header("👤 1. User Profile")
     st.markdown("Enter your name and email. You cannot proceed until both are filled.")
 
-    # Bind to session_state so values persist across reruns
+    # These keys exist in session_state because of our initialization
     name = st.text_input("Name", key="profile_name")
     email = st.text_input("Email Address", key="profile_email")
 
     if st.button("Next ➡️", key="next_profile"):
-        if not name.strip() or not email.strip():
+        if not st.session_state["profile_name"].strip() or not st.session_state["profile_email"].strip():
             st.warning("Please fill in both **Name** and **Email** to continue.")
         else:
             _go_to_next()
@@ -170,21 +198,25 @@ elif st.session_state.step == 1:
     st.header("🏷️ 2. Site Information")
     st.markdown("Provide basic details about the solar site. “Site Name” and “Location” are required.")
 
-    site_name = st.text_input("Site Name", key="site_name")
-    location = st.text_input("Location (City, State)", key="location")
-    capacity_mw = st.number_input(
-        "Capacity (MW)", min_value=0.0, step=0.1, value=0.0, key="capacity_mw"
+    st.text_input("Site Name", key="site_name")
+    st.text_input("Location (City, State)", key="location")
+    st.number_input(
+        "Capacity (MW)",
+        min_value=0.0,
+        step=0.1,
+        value=st.session_state["capacity_mw"],
+        key="capacity_mw",
     )
-    cod_year = st.number_input(
+    st.number_input(
         "Commercial Operation Date (Year)",
         min_value=1900,
         max_value=2100,
-        value=2024,
+        value=st.session_state["cod_year"],
         key="cod_year",
     )
 
     if st.button("Next ➡️", key="next_site"):
-        if not site_name.strip() or not location.strip():
+        if not st.session_state["site_name"].strip() or not st.session_state["location"].strip():
             st.warning("Please fill in both **Site Name** and **Location** to continue.")
         else:
             _go_to_next()
@@ -195,11 +227,11 @@ elif st.session_state.step == 2:
     st.header("⚙️ 3. Operational Risk Factors")
     st.markdown("Rate each factor from 1 (worst) to 5 (best). Once you’re satisfied, click Next.")
 
-    grid_connection = st.slider(
+    st.slider(
         "Grid Connection",
         min_value=1,
         max_value=5,
-        value=3,
+        value=st.session_state["grid_connection"],
         key="grid_connection",
         help="""
         5: Direct connection to major transmission  
@@ -209,11 +241,11 @@ elif st.session_state.step == 2:
         1: Remote/unstable grid, frequent outages
         """,
     )
-    om_provider = st.slider(
+    st.slider(
         "O&M Provider Experience",
         min_value=1,
         max_value=5,
-        value=3,
+        value=st.session_state["om_provider"],
         key="om_provider",
         help="""
         5: Tier 1 provider (Fluence, First Solar, etc.)  
@@ -223,11 +255,11 @@ elif st.session_state.step == 2:
         1: Self-operated or unproven contractor
         """,
     )
-    regulatory = st.slider(
+    st.slider(
         "Regulatory Environment",
         min_value=1,
         max_value=5,
-        value=3,
+        value=st.session_state["regulatory"],
         key="regulatory",
         help="""
         5: Streamlined permitting, supportive policies  
@@ -237,11 +269,11 @@ elif st.session_state.step == 2:
         1: Hostile regulatory environment
         """,
     )
-    site_access = st.slider(
+    st.slider(
         "Site Accessibility",
         min_value=1,
         max_value=5,
-        value=3,
+        value=st.session_state["site_access"],
         key="site_access",
         help="""
         5: Easy road access, near population centers  
@@ -253,7 +285,6 @@ elif st.session_state.step == 2:
     )
 
     if st.button("Next ➡️", key="next_operational"):
-        # Sliders always return a value, so we consider this “filled”
         _go_to_next()
 
 
@@ -262,11 +293,11 @@ elif st.session_state.step == 3:
     st.header("🔧 4. Technical Risk Factors")
     st.markdown("Rate each factor from 1 (worst) to 5 (best). When ready, click Next.")
 
-    panel_tech = st.slider(
+    st.slider(
         "Panel Technology",
         min_value=1,
         max_value=5,
-        value=3,
+        value=st.session_state["panel_tech"],
         key="panel_tech",
         help="""
         5: Tier 1 proven tech (JinkoSolar, LONGi, etc.)  
@@ -276,11 +307,11 @@ elif st.session_state.step == 3:
         1: Unproven manufacturer or cutting-edge tech
         """,
     )
-    inverter_tech = st.slider(
+    st.slider(
         "Inverter Technology",
         min_value=1,
         max_value=5,
-        value=3,
+        value=st.session_state["inverter_tech"],
         key="inverter_tech",
         help="""
         5: Tier 1 inverters (SMA, ABB, SolarEdge, etc.)  
@@ -290,11 +321,11 @@ elif st.session_state.step == 3:
         1: Unproven or experimental systems
         """,
     )
-    system_design = st.slider(
+    st.slider(
         "System Design Complexity",
         min_value=1,
         max_value=5,
-        value=3,
+        value=st.session_state["system_design"],
         key="system_design",
         help="""
         5: Simple fixed-tilt ground mount  
@@ -304,11 +335,11 @@ elif st.session_state.step == 3:
         1: Experimental design or extreme conditions
         """,
     )
-    installation = st.slider(
+    st.slider(
         "Installation Quality",
         min_value=1,
         max_value=5,
-        value=3,
+        value=st.session_state["installation"],
         key="installation",
         help="""
         5: Tier 1 EPC contractor with proven record  
@@ -328,11 +359,11 @@ elif st.session_state.step == 4:
     st.header("🌦️ 5. Climate Risk Factors")
     st.markdown("Rate each factor from 1 (worst) to 5 (best). Then click Next.")
 
-    weather_variability = st.slider(
+    st.slider(
         "Weather Variability",
         min_value=1,
         max_value=5,
-        value=3,
+        value=st.session_state["weather_variability"],
         key="weather_variability",
         help="""
         5: Very stable climate (Phoenix, Las Vegas)  
@@ -342,11 +373,11 @@ elif st.session_state.step == 4:
         1: Highly unpredictable climate patterns
         """,
     )
-    extreme_weather = st.slider(
+    st.slider(
         "Extreme Weather Risk",
         min_value=1,
         max_value=5,
-        value=3,
+        value=st.session_state["extreme_weather"],
         key="extreme_weather",
         help="""
         5: Minimal extreme weather risk  
@@ -356,11 +387,11 @@ elif st.session_state.step == 4:
         1: High hurricane/tornado/severe hail risk
         """,
     )
-    resource_stability = st.slider(
+    st.slider(
         "Long-term Resource Stability",
         min_value=1,
         max_value=5,
-        value=3,
+        value=st.session_state["resource_stability"],
         key="resource_stability",
         help="""
         5: Consistent solar resource over decades  
@@ -379,15 +410,15 @@ elif st.session_state.step == 4:
 elif st.session_state.step == 5:
     st.header("📊 6. Risk Assessment Results")
 
-    # Safely get each value (use empty default if missing)
-    name = st.session_state.get("profile_name", "")
-    email = st.session_state.get("profile_email", "")
-    site_name = st.session_state.get("site_name", "")
-    location = st.session_state.get("location", "")
-    capacity_mw = st.session_state.get("capacity_mw", 0.0)
-    cod_year = st.session_state.get("cod_year", 0)
+    # Safely fetch everything from session_state (never missing now)
+    name = st.session_state["profile_name"]
+    email = st.session_state["profile_email"]
+    site_name = st.session_state["site_name"]
+    location = st.session_state["location"]
+    capacity_mw = st.session_state["capacity_mw"]
+    cod_year = st.session_state["cod_year"]
 
-    # If any required field is still missing, show an error
+    # Check for missing required fields just in case
     missing = []
     if not name:
         missing.append("Name")
@@ -400,7 +431,7 @@ elif st.session_state.step == 5:
 
     if missing:
         st.error(
-            "🚫 Some required fields are missing. Please restart and fill every step correctly."
+            "🚫 Some required fields are missing. Please start over and fill every step correctly."
         )
         st.write("Missing fields:", ", ".join(missing))
         if st.button("🔄 Start Over", key="restart_missing"):
@@ -409,31 +440,31 @@ elif st.session_state.step == 5:
             st.session_state.step = 0
             st.experimental_rerun()
     else:
-        # Safely get slider values (they will always exist if user reached here)
+        # Build dictionaries (all slider keys exist now)
         operational_inputs = {
-            "grid_connection": st.session_state.get("grid_connection", 3),
-            "om_provider": st.session_state.get("om_provider", 3),
-            "regulatory": st.session_state.get("regulatory", 3),
-            "site_access": st.session_state.get("site_access", 3),
+            "grid_connection": st.session_state["grid_connection"],
+            "om_provider": st.session_state["om_provider"],
+            "regulatory": st.session_state["regulatory"],
+            "site_access": st.session_state["site_access"],
         }
         technical_inputs = {
-            "panel_tech": st.session_state.get("panel_tech", 3),
-            "inverter_tech": st.session_state.get("inverter_tech", 3),
-            "system_design": st.session_state.get("system_design", 3),
-            "installation": st.session_state.get("installation", 3),
+            "panel_tech": st.session_state["panel_tech"],
+            "inverter_tech": st.session_state["inverter_tech"],
+            "system_design": st.session_state["system_design"],
+            "installation": st.session_state["installation"],
         }
         climate_inputs = {
-            "weather_variability": st.session_state.get("weather_variability", 3),
-            "extreme_weather": st.session_state.get("extreme_weather", 3),
-            "resource_stability": st.session_state.get("resource_stability", 3),
+            "weather_variability": st.session_state["weather_variability"],
+            "extreme_weather": st.session_state["extreme_weather"],
+            "resource_stability": st.session_state["resource_stability"],
         }
 
-        # Compute scores
+        # Compute risk scores
         scores = calculator.calculate_risk_scores(
             operational_inputs, technical_inputs, climate_inputs
         )
 
-        # Display user + site info
+        # Display user & site info
         st.subheader("📝 User & Site Info")
         st.markdown(f"**Name:** {name}")
         st.markdown(f"**Email:** {email}")
@@ -513,7 +544,7 @@ elif st.session_state.step == 5:
             key="download_json",
         )
 
-        # “Start Over” button to reset the wizard
+        # “Start Over” button to reset everything
         if st.button("🔄 Start Over", key="restart"):
             for k in list(st.session_state.keys()):
                 del st.session_state[k]
