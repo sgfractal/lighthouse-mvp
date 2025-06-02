@@ -1,4 +1,5 @@
 # app.py
+
 import json
 from typing import Dict
 from dataclasses import dataclass
@@ -6,7 +7,7 @@ from dataclasses import dataclass
 import streamlit as st
 
 # ─── 0. SESSION-STATE INITIALIZATION ────────────────────────────────────────────
-# Pre‐seed all keys we will use in session_state to avoid AttributeError
+# Pre-seed all keys we will use in session_state to avoid AttributeError
 initial_keys = {
     "step": 0,
     "profile_name": "",
@@ -156,13 +157,12 @@ class SolarRiskCalculator:
 
 
 # ─── Streamlit App “Wizard” ───────────────────────────────────────────────────
-
 st.set_page_config(
-    page_title="Sunereum Solar Risk Calculator",
+    page_title="Sunereum Solar Risk Engine",
     layout="wide"
 )
 
-# Update the title to include "Sunereum Solar Risk Engine"
+# Updated title to include "Sunereum Solar Risk Engine"
 st.title("☀️ Sunereum Solar Risk Engine — Solar Site Risk Calculator")
 
 calculator = SolarRiskCalculator()
@@ -182,7 +182,7 @@ if st.session_state.step == 0:
     st.header("👤 1. User Profile")
     st.markdown("Enter your name and email. You cannot proceed until both are filled.")
 
-    # These keys exist in session_state because of our initialization
+    # Because we pre-initialized in session_state, these keys now exist (as "")
     name = st.text_input("Name", key="profile_name")
     email = st.text_input("Email Address", key="profile_email")
 
