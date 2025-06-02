@@ -130,7 +130,7 @@ class SolarRiskCalculator:
 
 # ─── Streamlit App “Wizard” ───────────────────────────────────────────────────
 
-st.set_page_config(page_title="Sunereum Solar Risk Calculator", layout="wide")
+st.set_page_config(page_title="Sunereum Site Risk Calculator", layout="wide")
 st.title("🔆 Sunereum Solar Risk Calculator")
 
 calculator = SolarRiskCalculator()
@@ -152,13 +152,12 @@ def _go_to_next():
 # ───— Step 0: Profile (Name & Email) ───────────────────────────────────────────
 if st.session_state.step == 0:
     st.header("👤 1. User Profile")
-    st.markdown("Please enter your name and email to proceed.")
+    st.markdown("Enter your name and email. You cannot proceed until both are filled.")
 
     # Bind to session_state so values persist across reruns
     name = st.text_input("Name", key="profile_name")
     email = st.text_input("Email Address", key="profile_email")
 
-    # “Next” button (only advances when valid)
     if st.button("Next ➡️", key="next_profile"):
         if not name.strip() or not email.strip():
             st.warning("Please fill in both **Name** and **Email** to continue.")
@@ -254,7 +253,7 @@ elif st.session_state.step == 2:
     )
 
     if st.button("Next ➡️", key="next_operational"):
-        # sliders always have a value 1–5, so we consider them “filled”
+        # Sliders always return a value, so we consider this “filled”
         _go_to_next()
 
 
@@ -380,121 +379,143 @@ elif st.session_state.step == 4:
 elif st.session_state.step == 5:
     st.header("📊 6. Risk Assessment Results")
 
-    # Gather everything from session_state
-    name = st.session_state.profile_name
-    email = st.session_state.profile_email
-    site_name = st.session_state.site_name
-    location = st.session_state.location
-    capacity_mw = st.session_state.capacity_mw
-    cod_year = st.session_state.cod_year
+    # Safely get each value (use empty default if missing)
+    name = st.session_state.get("profile_name", "")
+    email = st.session_state.get("profile_email", "")
+    site_name = st.session_state.get("site_name", "")
+    location = st.session_state.get("location", "")
+    capacity_mw = st.session_state.get("capacity_mw", 0.0)
+    cod_year = st.session_state.get("cod_year", 0)
 
-    operational_inputs = {
-        "grid_connection": st.session_state.grid_connection,
-        "om_provider": st.session_state.om_provider,
-        "regulatory": st.session_state.regulatory,
-        "site_access": st.session_state.site_access,
-    }
-    technical_inputs = {
-        "panel_tech": st.session_state.panel_tech,
-        "inverter_tech": st.session_state.inverter_tech,
-        "system_design": st.session_state.system_design,
-        "installation": st.session_state.installation,
-    }
-    climate_inputs = {
-        "weather_variability": st.session_state.weather_variability,
-        "extreme_weather": st.session_state.extreme_weather,
-        "resource_stability": st.session_state.resource_stability,
-    }
+    # If any required field is still missing, show an error
+    missing = []
+    if not name:
+        missing.append("Name")
+    if not email:
+        missing.append("Email")
+    if not site_name:
+        missing.append("Site Name")
+    if not location:
+        missing.append("Location")
 
-    # Compute scores
-    scores = calculator.calculate_risk_scores(
-        operational_inputs, technical_inputs, climate_inputs
-    )
+    if missing:
+        st.error(
+            "🚫 Some required fields are missing. Please restart and fill every step correctly."
+        )
+        st.write("Missing fields:", ", ".join(missing))
+        if st.button("🔄 Start Over", key="restart_missing"):
+            for k in list(st.session_state.keys()):
+                del st.session_state[k]
+            st.session_state.step = 0
+            st.experimental_rerun()
+    else:
+        # Safely get slider values (they will always exist if user reached here)
+        operational_inputs = {
+            "grid_connection": st.session_state.get("grid_connection", 3),
+            "om_provider": st.session_state.get("om_provider", 3),
+            "regulatory": st.session_state.get("regulatory", 3),
+            "site_access": st.session_state.get("site_access", 3),
+        }
+        technical_inputs = {
+            "panel_tech": st.session_state.get("panel_tech", 3),
+            "inverter_tech": st.session_state.get("inverter_tech", 3),
+            "system_design": st.session_state.get("system_design", 3),
+            "installation": st.session_state.get("installation", 3),
+        }
+        climate_inputs = {
+            "weather_variability": st.session_state.get("weather_variability", 3),
+            "extreme_weather": st.session_state.get("extreme_weather", 3),
+            "resource_stability": st.session_state.get("resource_stability", 3),
+        }
 
-    # Display user + site info
-    st.subheader("📝 User & Site Info")
-    st.markdown(f"**Name:** {name}")
-    st.markdown(f"**Email:** {email}")
-    st.markdown(f"**Site Name:** {site_name}")
-    st.markdown(f"**Location:** {location}")
-    st.markdown(f"**Capacity (MW):** {capacity_mw:.2f}")
-    st.markdown(f"**COD Year:** {cod_year}")
+        # Compute scores
+        scores = calculator.calculate_risk_scores(
+            operational_inputs, technical_inputs, climate_inputs
+        )
 
-    st.markdown("---")
-    st.subheader("📈 Risk Scores")
+        # Display user + site info
+        st.subheader("📝 User & Site Info")
+        st.markdown(f"**Name:** {name}")
+        st.markdown(f"**Email:** {email}")
+        st.markdown(f"**Site Name:** {site_name}")
+        st.markdown(f"**Location:** {location}")
+        st.markdown(f"**Capacity (MW):** {capacity_mw:.2f}")
+        st.markdown(f"**COD Year:** {cod_year}")
 
-    # Four columns: Category, Score, Level, Indicator
-    col1, col2, col3, col4 = st.columns(4)
-    with col1:
-        st.markdown("**Category**")
-        st.markdown("Operational")
-        st.markdown("Technical")
-        st.markdown("Climate")
-        st.markdown("Overall")
-    with col2:
-        st.markdown("**Score**")
-        st.markdown(f"{scores.operational:.2f}")
-        st.markdown(f"{scores.technical:.2f}")
-        st.markdown(f"{scores.climate:.2f}")
-        st.markdown(f"{scores.overall:.2f}")
-    with col3:
-        st.markdown("**Level**")
-        st.markdown(calculator.get_risk_level(scores.operational))
-        st.markdown(calculator.get_risk_level(scores.technical))
-        st.markdown(calculator.get_risk_level(scores.climate))
-        st.markdown(calculator.get_risk_level(scores.overall))
-    with col4:
-        st.markdown("**Indicator**")
-        st.markdown(calculator.get_risk_color(scores.operational))
-        st.markdown(calculator.get_risk_color(scores.technical))
-        st.markdown(calculator.get_risk_color(scores.climate))
-        st.markdown(calculator.get_risk_color(scores.overall))
+        st.markdown("---")
+        st.subheader("📈 Risk Scores")
 
-    st.markdown("---")
-    st.subheader("🔍 Interpretation")
-    st.markdown(calculator.risk_interpretation(scores.overall))
+        # Four columns: Category, Score, Level, Indicator
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.markdown("**Category**")
+            st.markdown("Operational")
+            st.markdown("Technical")
+            st.markdown("Climate")
+            st.markdown("Overall")
+        with col2:
+            st.markdown("**Score**")
+            st.markdown(f"{scores.operational:.2f}")
+            st.markdown(f"{scores.technical:.2f}")
+            st.markdown(f"{scores.climate:.2f}")
+            st.markdown(f"{scores.overall:.2f}")
+        with col3:
+            st.markdown("**Level**")
+            st.markdown(calculator.get_risk_level(scores.operational))
+            st.markdown(calculator.get_risk_level(scores.technical))
+            st.markdown(calculator.get_risk_level(scores.climate))
+            st.markdown(calculator.get_risk_level(scores.overall))
+        with col4:
+            st.markdown("**Indicator**")
+            st.markdown(calculator.get_risk_color(scores.operational))
+            st.markdown(calculator.get_risk_color(scores.technical))
+            st.markdown(calculator.get_risk_color(scores.climate))
+            st.markdown(calculator.get_risk_color(scores.overall))
 
-    st.markdown("---")
-    st.subheader("🛠️ Recommendations")
-    st.markdown(calculator.recommendations(scores), unsafe_allow_html=True)
+        st.markdown("---")
+        st.subheader("🔍 Interpretation")
+        st.markdown(calculator.risk_interpretation(scores.overall))
 
-    st.markdown("---")
-    st.subheader("💾 Export to JSON")
-    filename = f"{site_name.replace(' ', '_')}_risk_assessment.json"
-    payload = {
-        "user": {"name": name, "email": email},
-        "site_info": {
-            "site_name": site_name,
-            "location": location,
-            "capacity_mw": capacity_mw,
-            "cod_year": cod_year,
-        },
-        "risk_scores": {
-            "operational": scores.operational,
-            "technical": scores.technical,
-            "climate": scores.climate,
-            "overall": scores.overall,
-        },
-        "risk_levels": {
-            "operational": calculator.get_risk_level(scores.operational),
-            "technical": calculator.get_risk_level(scores.technical),
-            "climate": calculator.get_risk_level(scores.climate),
-            "overall": calculator.get_risk_level(scores.overall),
-        },
-    }
-    json_str = json.dumps(payload, indent=2)
-    st.download_button(
-        label="⬇️ Download Results as JSON",
-        data=json_str,
-        file_name=filename,
-        mime="application/json",
-        key="download_json",
-    )
+        st.markdown("---")
+        st.subheader("🛠️ Recommendations")
+        st.markdown(calculator.recommendations(scores), unsafe_allow_html=True)
 
-    # Optional: allow user to restart the wizard
-    if st.button("🔄 Start Over", key="restart"):
-        # Reset everything
-        for k in list(st.session_state.keys()):
-            del st.session_state[k]
-        st.session_state.step = 0
-        st.experimental_rerun()
+        st.markdown("---")
+        st.subheader("💾 Export to JSON")
+        filename = f"{site_name.replace(' ', '_')}_risk_assessment.json"
+        payload = {
+            "user": {"name": name, "email": email},
+            "site_info": {
+                "site_name": site_name,
+                "location": location,
+                "capacity_mw": capacity_mw,
+                "cod_year": cod_year,
+            },
+            "risk_scores": {
+                "operational": scores.operational,
+                "technical": scores.technical,
+                "climate": scores.climate,
+                "overall": scores.overall,
+            },
+            "risk_levels": {
+                "operational": calculator.get_risk_level(scores.operational),
+                "technical": calculator.get_risk_level(scores.technical),
+                "climate": calculator.get_risk_level(scores.climate),
+                "overall": calculator.get_risk_level(scores.overall),
+            },
+        }
+        json_str = json.dumps(payload, indent=2)
+        st.download_button(
+            label="⬇️ Download Results as JSON",
+            data=json_str,
+            file_name=filename,
+            mime="application/json",
+            key="download_json",
+        )
+
+        # “Start Over” button to reset the wizard
+        if st.button("🔄 Start Over", key="restart"):
+            for k in list(st.session_state.keys()):
+                del st.session_state[k]
+            st.session_state.step = 0
+            st.experimental_rerun()
